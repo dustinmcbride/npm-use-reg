@@ -1,6 +1,5 @@
 const fs = require('fs');
 const npmrcFilePath = process.env.HOME + '/.npmrc';
-const npmrc = require('dotenv').config({ path: npmrcFilePath }).parsed;
 const envVariblePrefix = 'NPM_USE_REG_';
 
 function findRegistriesFromEnvVaribles() {
@@ -10,14 +9,15 @@ function findRegistriesFromEnvVaribles() {
     .map(key => [key.slice(12, key.length).toLowerCase(), process.env[key]])
 }
 
-function createNpmrcFileContent() {
-  let results = '';
-  let keys = Object.keys(npmrc);
-  keys.forEach((key ,index) => {
-    results += `${key}=${npmrc[key]}`;
-    results += index === keys.length - 1 ? '' : '\n';
-  });
-  return results;
+function createNpmrcFileContentWithNewRegistry(registryUrl) {
+  let oldFileContents = fs.readFileSync(npmrcFilePath).toString().split('\n')
+  let newFileContent = oldFileContents.map(line => {
+    if(line.slice(0,9) === 'registry=') {
+      return `registry=${registryUrl}`
+    }
+    return line
+  })
+  return newFileContent.join('\n')
 }
 
 function displayKnowRegistriesMessage(availableRegistries) {
@@ -72,14 +72,13 @@ function displayHelpMessage(userArg) {
 function start (envArgs) {
   const regToUse = envArgs[2];
   let availableRegistries = new Map(findRegistriesFromEnvVaribles());
-
+  const urlOfRegToUse = availableRegistries.get(regToUse)
   displayHelpMessage(regToUse);
   checkSetup(availableRegistries);
   checkUsage(availableRegistries, regToUse);
 
-  npmrc.registry = availableRegistries.get(regToUse);
-  fs.writeFile(npmrcFilePath, createNpmrcFileContent(), writeFileError);
-  console.log(`NPM will now use registry at ${availableRegistries.get(regToUse)}`);
+  fs.writeFile(npmrcFilePath, createNpmrcFileContentWithNewRegistry(urlOfRegToUse), writeFileError);
+  console.log(`NPM will now use registry at ${urlOfRegToUse}`);
 }
 
 module.exports = {start}
